@@ -1,0 +1,121 @@
+package encryptdecrypt
+
+import java.io.File
+
+fun main(args: Array<String>) {
+    val mapOfArgs = emptyMap<String, String>().toMutableMap()
+    for (i in 1..args.size step 2) {
+        mapOfArgs.put(args[i - 1], args[i])
+    }
+
+    val mode = mapOfArgs.getOrDefault("-mode", "enc")
+    val key = mapOfArgs.getOrDefault("-key", "0")
+    val data = if (returnData(mapOfArgs) != "") returnData(mapOfArgs) else returnIn(mapOfArgs)
+    if (data == "Error") {
+        println(data)
+        return
+    }
+
+    val outStr = if (mode == "dec") decoding(data, key.toInt(), mapOfArgs) else encoding(data, key.toInt(), mapOfArgs)
+
+    val checkExistKey = mapOfArgs.getOrDefault("-out", "")
+    if (checkExistKey == "") {
+        println(outStr)
+    } else {
+        writeToFile(mapOfArgs, outStr)
+    }
+}
+
+fun checkValues(mapForCheck: Map<String, String>, keyForCheck: String): String {
+    val valueToData = mapForCheck.get(keyForCheck)
+    val returnData = if (valueToData != null) valueToData else "Error"
+    return returnData
+}
+
+fun checkFile(fileName: String): Boolean = File(fileName).exists()
+
+fun returnIn(mapForCheck: Map<String, String>): String {
+    val checkExistKey = mapForCheck.getOrDefault("-in", "")
+    if (checkExistKey == "") {
+        return ""
+    } else {
+        val checkExistValue = checkValues(mapForCheck, "-in")
+        if (checkExistValue == "Error") {
+            return "Error"
+        } else {
+            if (checkFile(checkExistValue)) {
+                return fromFile(checkExistValue)
+            } else {
+                return "Error"
+            }
+        }
+    }
+}
+
+fun returnData(mapForCheck: Map<String, String>): String {
+    val checkExistKey = mapForCheck.getOrDefault("-data", "")
+    return if (checkExistKey == "") "" else checkValues(mapForCheck, "-data")
+}
+
+fun writeToFile(mapForCheck: Map<String, String>, text: String) {
+    val checkExistValue = checkValues(mapForCheck, "-out")
+    if (checkExistValue == "Error") {
+        println("Error")
+        return
+    } else {
+        toFile(text, checkExistValue)
+    }
+}
+
+fun encoding(input: String, key: Int, mapForCheck: Map<String, String>):String {
+    val alg = mapForCheck.getOrDefault("-alg", "shift")
+    val shift = ::encodingShift
+    val unicode = ::encodingUnicode
+    return if (alg == "unicode") unicode(input, key) else shift(input, key)
+}
+
+fun decoding(input: String, key: Int, mapForCheck: Map<String, String>): String {
+    val alg = mapForCheck.getOrDefault("-alg", "shift")
+    val shift = ::decodingShift
+    val unicode = ::decodingUnicode
+    return if (alg == "unicode") unicode(input, key) else shift(input, key)
+}
+
+fun encodingUnicode(input: String, key: Int): String = input.map { (it.code + key).toChar() }.joinToString("")
+
+fun encodingShift(input: String, key: Int): String {
+    var str = ""
+    for (i in input) {
+        str +=
+            when {
+                "[a-z]".toRegex().matches(i.toString()) -> if (i.code + key <= 'z'.code) (i.code + key).toChar() else (i.code + key - 26).toChar()
+                "[A-Z]".toRegex().matches(i.toString()) -> if (i.code + key <= 'Z'.code) (i.code + key).toChar() else (i.code + key - 26).toChar()
+                else -> i
+            }
+    }
+    return str
+}
+
+fun decodingUnicode(input: String, key: Int): String = input.map { (it.code - key).toChar() }.joinToString("")
+
+fun decodingShift(input: String, key: Int): String {
+    var str = ""
+    for (i in input) {
+        str +=
+            when {
+                "[a-z]".toRegex().matches(i.toString()) -> if (i.code - key >= 'a'.code) (i.code - key).toChar() else (i.code - key + 26).toChar()
+                "[A-Z]".toRegex().matches(i.toString()) -> if (i.code - key >= 'A'.code) (i.code - key).toChar() else (i.code - key + 26).toChar()
+                else -> i
+            }
+    }
+    return str
+}
+
+fun fromFile(name: String): String {
+    val file = File(name)
+    return file.readText()
+}
+
+fun toFile(text: String, fileName: String) {
+    File(fileName).writeText(text)
+}
